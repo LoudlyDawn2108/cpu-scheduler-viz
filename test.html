@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SJF & SRTN Scheduling Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* A light gray background */
+        }
+        /* A simple color palette for the processes in the Gantt chart */
+        .p-color-1 { background-color: #60a5fa; color: white; }
+        .p-color-2 { background-color: #f87171; color: white; }
+        .p-color-3 { background-color: #4ade80; color: white; }
+        .p-color-4 { background-color: #fbbf24; color: white; }
+        .p-color-5 { background-color: #a78bfa; color: white; }
+        .p-color-6 { background-color: #2dd4bf; color: white; }
+        .p-color-7 { background-color: #f472b6; color: white; }
+        .p-color-8 { background-color: #818cf8; color: white; }
+        .p-color-9 { background-color: #c084fc; color: white; }
+        .p-color-10 { background-color: #fb923c; color: white; }
+        .gantt-idle { background-color: #e5e7eb; }
+        .table-cell {
+            padding: 0.75rem;
+            text-align: center;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .queue-process {
+            transition: all 0.3s ease-in-out;
+        }
+        .progress-bar-bg {
+            background-color: #e5e7eb;
+        }
+        .progress-bar-fill {
+            transition: width 0.2s ease-in-out;
+        }
+        /* Styles for active and inactive tabs */
+        .tab-btn.active {
+            border-color: #6366f1; /* indigo-500 */
+            color: #4f46e5; /* indigo-600 */
+        }
+    </style>
+</head>
+<body class="antialiased text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">CPU Scheduling Simulator</h1>
+            <p class="text-lg text-gray-600 mt-2">Visualizing Shortest Job First (SJF) & Shortest Remaining Time Next (SRTN)</p>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Left Panel: Inputs and Process List -->
+            <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg h-fit">
+                <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Add Processes</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label for="arrival-time" class="block text-sm font-medium text-gray-700">Arrival Time</label>
+                        <input type="number" id="arrival-time" min="0" value="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="burst-time" class="block text-sm font-medium text-gray-700">Burst Time</label>
+                        <input type="number" id="burst-time" min="1" value="5" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div class="flex space-x-2">
+                        <button id="add-process-btn" class="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-transform transform hover:scale-105">
+                            Add Process
+                        </button>
+                         <button id="add-example-btn" class="w-full bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-transform transform hover:scale-105">
+                            Example
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-xl font-semibold mb-3">Process Queue</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white border rounded-lg">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="table-cell font-semibold">ID</th>
+                                    <th class="table-cell font-semibold">Arrival</th>
+                                    <th class="table-cell font-semibold">Burst</th>
+                                    <th class="table-cell font-semibold">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="process-list">
+                                <!-- Processes will be added here -->
+                            </tbody>
+                        </table>
+                    </div>
+                     <button id="clear-btn" class="mt-4 w-full bg-red-500 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-transform transform hover:scale-105">
+                        Clear All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Panel: Simulation and Results -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg">
+                <div class="flex justify-center mb-6">
+                     <button id="run-simulation-btn" class="w-1/2 bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-xl hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-lg transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                        Run Interactive Simulation
+                    </button>
+                </div>
+                
+                <!-- Interactive Simulation Area -->
+                <div id="interactive-simulation-area" class="space-y-4 hidden">
+                     <div>
+                        <div class="flex justify-between items-center mb-4 flex-wrap">
+                            <h3 class="text-2xl font-bold">Live Simulation</h3>
+                            <div class="flex items-center space-x-2 sm:space-x-4 mt-2 sm:mt-0">
+                               <label for="speed-slider" class="text-sm font-medium">Speed:</label>
+                               <input type="range" id="speed-slider" min="100" max="1000" value="500" class="w-24 sm:w-32">
+                               <button id="pause-resume-btn" class="bg-blue-500 text-white font-semibold py-1 px-3 rounded-lg shadow-md hover:bg-blue-600">Pause</button>
+                               <button id="reset-sim-btn" class="bg-yellow-500 text-white font-semibold py-1 px-3 rounded-lg shadow-md hover:bg-yellow-600">Reset</button>
+                            </div>
+                        </div>
+                        <div class="text-center font-mono text-xl p-2 bg-gray-100 rounded-lg">
+                            Current Time: <span id="current-time" class="font-bold">0</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabs for Live View -->
+                    <div class="border-b border-gray-200">
+                        <nav id="live-tabs" class="-mb-px flex space-x-6" aria-label="Tabs">
+                            <button data-tab="sjf" class="tab-btn active border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Shortest Job First (SJF)</button>
+                            <button data-tab="srtn" class="tab-btn border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Shortest Remaining Time Next (SRTN)</button>
+                        </nav>
+                    </div>
+
+                    <!-- Live View Content Panes -->
+                    <div id="sjf-interactive-content" class="live-tab-content"></div>
+                    <div id="srtn-interactive-content" class="live-tab-content hidden"></div>
+                </div>
+
+                <!-- Final Results Area -->
+                <div id="results-container" class="space-y-4 mt-8 hidden">
+                     <h3 class="text-2xl font-bold">Final Summary</h3>
+                     <!-- Tabs for Final Results -->
+                    <div class="border-b border-gray-200">
+                        <nav id="results-tabs" class="-mb-px flex space-x-6" aria-label="Tabs">
+                            <button data-tab="sjf" class="tab-btn active border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">SJF Summary</button>
+                            <button data-tab="srtn" class="tab-btn border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">SRTN Summary</button>
+                        </nav>
+                    </div>
+
+                    <!-- Results Content Panes -->
+                    <div id="sjf-results-content" class="results-tab-content"></div>
+                    <div id="srtn-results-content" class="results-tab-content hidden"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM ELEMENTS ---
+        const arrivalInput = document.getElementById('arrival-time');
+        const burstInput = document.getElementById('burst-time');
+        const addProcessBtn = document.getElementById('add-process-btn');
+        const addExampleBtn = document.getElementById('add-example-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const processListBody = document.getElementById('process-list');
+        const runSimulationBtn = document.getElementById('run-simulation-btn');
+        const interactiveSimArea = document.getElementById('interactive-simulation-area');
+        const resultsContainer = document.getElementById('results-container');
+        const currentTimeSpan = document.getElementById('current-time');
+        const speedSlider = document.getElementById('speed-slider');
+        const resetSimBtn = document.getElementById('reset-sim-btn');
+        const pauseResumeBtn = document.getElementById('pause-resume-btn');
+        const sjfInteractiveContent = document.getElementById('sjf-interactive-content');
+        const srtnInteractiveContent = document.getElementById('srtn-interactive-content');
+        const sjfResultsContent = document.getElementById('sjf-results-content');
+        const srtnResultsContent = document.getElementById('srtn-results-content');
+        const liveTabs = document.getElementById('live-tabs');
+        const resultsTabs = document.getElementById('results-tabs');
+
+        // --- STATE ---
+        let processes = [];
+        let processIdCounter = 1;
+        let simulationInterval = null;
+        let isPaused = false;
+        let currentTime = 0;
+        let sjfSimulator, srtnSimulator;
+
+        // --- FUNCTIONS ---
+
+        function addProcess() {
+            const arrivalTime = parseInt(arrivalInput.value, 10);
+            const burstTime = parseInt(burstInput.value, 10);
+
+            if (isNaN(arrivalTime) || isNaN(burstTime) || arrivalTime < 0 || burstTime <= 0) {
+                alert('Please enter valid, non-negative arrival and positive burst times.');
+                return;
+            }
+
+            const newProcess = {
+                id: processIdCounter++,
+                arrival: arrivalTime,
+                burst: burstTime,
+            };
+
+            processes.push(newProcess);
+            updateProcessTable();
+            arrivalInput.value = arrivalTime + 1; 
+            burstInput.value = Math.floor(Math.random() * 10) + 1;
+            runSimulationBtn.disabled = false;
+        }
+        
+        function addExampleData() {
+            clearAll();
+            const exampleProcesses = [
+                { arrival: 0, burst: 7 },
+                { arrival: 2, burst: 4 },
+                { arrival: 4, burst: 1 },
+                { arrival: 5, burst: 4 },
+            ];
+            
+            exampleProcesses.forEach(p => {
+                processes.push({ id: processIdCounter++, ...p });
+            });
+            updateProcessTable();
+            runSimulationBtn.disabled = false;
+        }
+
+        function deleteProcess(id) {
+            processes = processes.filter(p => p.id !== id);
+            updateProcessTable();
+            if (processes.length === 0) {
+                runSimulationBtn.disabled = true;
+            }
+        }
+        
+        function clearAll() {
+            processes = [];
+            processIdCounter = 1;
+            updateProcessTable();
+            runSimulationBtn.disabled = true;
+            arrivalInput.value = 0;
+            burstInput.value = 5;
+            resetSimulation();
+        }
+
+        function updateProcessTable() {
+            processListBody.innerHTML = '';
+            processes.sort((a,b) => a.id - b.id).forEach(p => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="table-cell">P${p.id}</td>
+                    <td class="table-cell">${p.arrival}</td>
+                    <td class="table-cell">${p.burst}</td>
+                    <td class="table-cell">
+                        <button class="text-red-500 hover:text-red-700 font-semibold" onclick="deleteProcess(${p.id})">Remove</button>
+                    </td>
+                `;
+                processListBody.appendChild(row);
+            });
+        }
+        
+        function getColorClass(id) {
+            return `p-color-${((id - 1) % 10) + 1}`;
+        }
+        
+        function createGanttChartHTML(ganttChartData) {
+            const totalDuration = ganttChartData[ganttChartData.length - 1]?.end || 0;
+            if (totalDuration === 0) return '<p>No execution time.</p>';
+
+            let chartHTML = '<div class="w-full flex border-2 border-gray-300 rounded-lg overflow-hidden">';
+            ganttChartData.forEach(item => {
+                const duration = item.end - item.start;
+                const widthPercentage = (duration / totalDuration) * 100;
+                const colorClass = item.id === 'IDLE' ? 'gantt-idle' : getColorClass(item.id);
+                chartHTML += `
+                    <div style="width: ${widthPercentage}%;" class="h-12 flex flex-col items-center justify-center ${colorClass} border-r border-gray-500/30 text-xs font-bold" title="P${item.id} from ${item.start} to ${item.end}">
+                        <span>P${item.id}</span>
+                    </div>
+                `;
+            });
+            chartHTML += '</div>';
+
+            let timelineHTML = '<div class="w-full flex relative mt-1">';
+            ganttChartData.forEach(item => {
+                const duration = item.end - item.start;
+                const widthPercentage = (duration / totalDuration) * 100;
+                timelineHTML += `
+                    <div style="width: ${widthPercentage}%;" class="relative text-xs text-gray-600">
+                        <span class="absolute -left-1.5">${item.start}</span>
+                    </div>
+                `;
+            });
+            timelineHTML += `<span class="absolute -right-1.5 text-xs text-gray-600">${totalDuration}</span></div>`;
+
+            return `<div class="mt-4">${chartHTML}${timelineHTML}</div>`;
+        }
+
+        function simulationStep() {
+            currentTimeSpan.textContent = currentTime;
+
+            sjfSimulator.tick(currentTime);
+            srtnSimulator.tick(currentTime);
+
+            updateInteractiveView('sjf', sjfSimulator.getState(), currentTime);
+            updateInteractiveView('srtn', srtnSimulator.getState(), currentTime);
+
+            if (sjfSimulator.isFinished() && srtnSimulator.isFinished()) {
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+                runSimulationBtn.disabled = false;
+                addProcessBtn.disabled = false;
+                pauseResumeBtn.disabled = true;
+                pauseResumeBtn.textContent = 'Finished';
+                displayFinalResults();
+            } else {
+                currentTime++;
+            }
+        };
+
+        function startInterval() {
+            if (simulationInterval) clearInterval(simulationInterval);
+            const speed = 1100 - speedSlider.value;
+            simulationInterval = setInterval(simulationStep, speed);
+        };
+
+        function runSimulation() {
+            if (processes.length === 0) {
+                alert('Please add at least one process.');
+                return;
+            }
+            
+            resetSimulation();
+            interactiveSimArea.classList.remove('hidden');
+            runSimulationBtn.disabled = true;
+            addProcessBtn.disabled = true;
+            pauseResumeBtn.disabled = false;
+
+            sjfSimulator = new SJF_Simulator(JSON.parse(JSON.stringify(processes)));
+            srtnSimulator = new SRTN_Simulator(JSON.parse(JSON.stringify(processes)));
+
+            sjfInteractiveContent.innerHTML = createInteractiveViewHTML('sjf');
+            srtnInteractiveContent.innerHTML = createInteractiveViewHTML('srtn');
+            
+            switchTab('live', 'sjf'); // Set initial tab
+
+            startInterval();
+        }
+        
+        function resetSimulation() {
+            clearInterval(simulationInterval);
+            simulationInterval = null;
+            interactiveSimArea.classList.add('hidden');
+            resultsContainer.classList.add('hidden');
+            sjfResultsContent.innerHTML = '';
+            srtnResultsContent.innerHTML = '';
+            runSimulationBtn.disabled = processes.length === 0;
+            addProcessBtn.disabled = false;
+            isPaused = false;
+            currentTime = 0;
+            pauseResumeBtn.textContent = 'Pause';
+            pauseResumeBtn.disabled = true;
+        }
+
+        function togglePauseSimulation() {
+            if (!simulationInterval && !isPaused) return; // Don't do anything if finished
+
+            if (isPaused) {
+                isPaused = false;
+                pauseResumeBtn.textContent = 'Pause';
+                startInterval();
+            } else {
+                isPaused = true;
+                pauseResumeBtn.textContent = 'Resume';
+                clearInterval(simulationInterval);
+            }
+        }
+        
+        function displayFinalResults() {
+            resultsContainer.classList.remove('hidden');
+            const processesForSJF = JSON.parse(JSON.stringify(processes));
+            const processesForSRTN = JSON.parse(JSON.stringify(processes));
+
+            const sjfResults = calculateSJF(processesForSJF);
+            const srtnResults = calculateSRTN(processesForSRTN);
+
+            renderResults(sjfResults, sjfResultsContent);
+            renderResults(srtnResults, srtnResultsContent);
+            
+            switchTab('results', 'sjf'); // Set initial tab
+        }
+
+        function renderResults(results, targetElement) {
+            const { completedProcesses, ganttChart, avgWaitingTime, avgTurnaroundTime } = results;
+
+            let tableHTML = `
+                <table class="min-w-full bg-white border rounded-lg mt-4">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="table-cell font-semibold">ID</th><th class="table-cell font-semibold">Arrival</th><th class="table-cell font-semibold">Burst</th>
+                            <th class="table-cell font-semibold">Completion</th><th class="table-cell font-semibold">Turnaround</th><th class="table-cell font-semibold">Waiting</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            completedProcesses.sort((a,b) => a.id - b.id).forEach(p => {
+                tableHTML += `
+                    <tr>
+                        <td class="table-cell">P${p.id}</td><td class="table-cell">${p.arrival}</td><td class="table-cell">${p.burst}</td>
+                        <td class="table-cell">${p.completionTime}</td><td class="table-cell">${p.turnaroundTime}</td><td class="table-cell">${p.waitingTime}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `
+                    </tbody>
+                    <tfoot class="bg-gray-100 font-bold">
+                        <tr>
+                            <td colspan="4" class="table-cell text-right">Averages</td>
+                            <td class="table-cell">${avgTurnaroundTime.toFixed(2)}</td>
+                            <td class="table-cell">${avgWaitingTime.toFixed(2)}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            `;
+
+            targetElement.innerHTML = `
+                <div class="result-card p-4 border rounded-lg bg-gray-50">
+                    <h4 class="text-lg font-semibold mt-4 mb-1">Gantt Chart</h4>
+                    ${createGanttChartHTML(ganttChart)}
+                    <h4 class="text-lg font-semibold mt-6 mb-1">Metrics</h4>
+                    ${tableHTML}
+                </div>
+            `;
+        }
+
+        // --- INTERACTIVE UI FUNCTIONS ---
+        function createInteractiveViewHTML(prefix) {
+            return `
+                <div class="p-4 border rounded-lg bg-gray-50">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <h4 class="font-semibold text-center">Running Process</h4>
+                             <div id="${prefix}-running-process" class="mt-2 h-16 flex flex-col items-center justify-center bg-gray-100 rounded text-lg font-bold p-2">
+                                IDLE
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-center">Ready Queue</h4>
+                            <div id="${prefix}-ready-queue" class="mt-2 h-16 flex items-center justify-center space-x-2 bg-gray-100 rounded p-2 overflow-x-auto">
+                                <!-- Ready processes here -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <h4 class="font-semibold">Live Gantt Chart</h4>
+                        <div id="${prefix}-live-gantt" class="w-full flex h-10 bg-gray-200 rounded-lg overflow-hidden mt-2 border"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateInteractiveView(prefix, state, currentTime) {
+            const { runningProcess, readyQueue, ganttHistory, totalDuration } = state;
+            
+            const runningProcessDiv = document.getElementById(`${prefix}-running-process`);
+            if (runningProcess) {
+                const colorClass = getColorClass(runningProcess.id);
+                const executedTime = prefix === 'sjf' 
+                    ? currentTime - runningProcess.startTime 
+                    : runningProcess.burst - runningProcess.remainingTime - 1;
+                const progressPercentage = ( (executedTime + 1) / runningProcess.burst) * 100;
+
+                runningProcessDiv.className = `mt-2 h-16 flex flex-col items-center justify-center rounded text-lg font-bold p-2`;
+                runningProcessDiv.innerHTML = `
+                    <span class="w-full text-center">P${runningProcess.id} (${executedTime + 1}/${runningProcess.burst})</span>
+                    <div class="w-full progress-bar-bg rounded-full h-2.5 mt-1">
+                        <div class="${colorClass} h-2.5 rounded-full progress-bar-fill" style="width: ${progressPercentage}%"></div>
+                    </div>
+                `;
+            } else {
+                runningProcessDiv.className = 'mt-2 h-16 flex flex-col items-center justify-center bg-gray-100 rounded text-lg font-bold p-2';
+                runningProcessDiv.innerHTML = 'IDLE';
+            }
+
+            const readyQueueDiv = document.getElementById(`${prefix}-ready-queue`);
+            readyQueueDiv.innerHTML = '';
+            readyQueue.forEach(p => {
+                const processEl = document.createElement('div');
+                const remaining = prefix === 'sjf' ? p.burst : p.remainingTime;
+                processEl.className = `queue-process flex-shrink-0 w-12 h-12 flex flex-col items-center justify-center font-bold text-xs rounded-full ${getColorClass(p.id)}`;
+                processEl.innerHTML = `
+                    <span>P${p.id}</span>
+                    <span class="opacity-80 text-xs">(${remaining})</span>
+                `;
+                readyQueueDiv.appendChild(processEl);
+            });
+
+            const liveGanttDiv = document.getElementById(`${prefix}-live-gantt`);
+            liveGanttDiv.innerHTML = '';
+            if (totalDuration > 0) {
+                 ganttHistory.forEach(item => {
+                    const widthPercentage = (1 / totalDuration) * 100;
+                    const block = document.createElement('div');
+                    block.style.width = `${widthPercentage}%`;
+                    block.className = item.id === 'IDLE' ? 'gantt-idle h-full' : `${getColorClass(item.id)} h-full`;
+                    block.title = `P${item.id}`;
+                    liveGanttDiv.appendChild(block);
+                });
+            }
+        }
+
+
+        // --- ALGORITHMS ---
+
+        class SJF_Simulator {
+            constructor(processQueue) {
+                this.processes = processQueue;
+                this.completedProcesses = [];
+                this.ganttHistory = [];
+                this.runningProcess = null;
+                this.readyQueue = [];
+                this.totalBurstTime = this.processes.reduce((acc, p) => acc + p.burst, 0);
+            }
+
+            tick(currentTime) {
+                if (this.isFinished()) {
+                    this.runningProcess = null;
+                    return;
+                }
+
+                this.processes.forEach(p => {
+                    if (p.arrival === currentTime) {
+                        this.readyQueue.push(p);
+                    }
+                });
+
+                if (!this.runningProcess) {
+                    if (this.readyQueue.length > 0) {
+                        this.readyQueue.sort((a, b) => a.burst - b.burst || a.arrival - b.arrival);
+                        this.runningProcess = this.readyQueue.shift();
+                        this.runningProcess.startTime = currentTime;
+                    }
+                }
+
+                this.ganttHistory.push({ id: this.runningProcess ? this.runningProcess.id : 'IDLE' });
+
+                if (this.runningProcess) {
+                    if (currentTime >= this.runningProcess.startTime + this.runningProcess.burst - 1) {
+                        this.completedProcesses.push(this.runningProcess);
+                        this.runningProcess = null;
+                    }
+                }
+            }
+
+            getState() {
+                const idleTime = this.ganttHistory.filter(i => i.id === 'IDLE').length;
+                return {
+                    runningProcess: this.runningProcess,
+                    readyQueue: this.readyQueue,
+                    ganttHistory: this.ganttHistory,
+                    totalDuration: idleTime + this.totalBurstTime
+                };
+            }
+
+            isFinished() {
+                return this.completedProcesses.length === this.processes.length;
+            }
+        }
+
+        class SRTN_Simulator {
+            constructor(processQueue) {
+                this.processes = processQueue;
+                this.processes.forEach(p => p.remainingTime = p.burst);
+                this.completedProcesses = [];
+                this.ganttHistory = [];
+                this.runningProcess = null;
+                this.readyQueue = [];
+                this.totalBurstTime = this.processes.reduce((acc, p) => acc + p.burst, 0);
+            }
+
+            tick(currentTime) {
+                 if (this.isFinished()) {
+                    this.runningProcess = null;
+                    return;
+                }
+
+                this.processes.forEach(p => {
+                    if (p.arrival === currentTime) {
+                        this.readyQueue.push(p);
+                    }
+                });
+
+                if (this.readyQueue.length > 0) {
+                    this.readyQueue.sort((a, b) => a.remainingTime - b.remainingTime);
+                    const shortestInQueue = this.readyQueue[0];
+                    if (this.runningProcess && shortestInQueue.remainingTime < this.runningProcess.remainingTime) {
+                        this.readyQueue.push(this.runningProcess);
+                        this.runningProcess = this.readyQueue.shift();
+                    }
+                }
+                
+                if (!this.runningProcess && this.readyQueue.length > 0) {
+                     this.readyQueue.sort((a, b) => a.remainingTime - b.remainingTime);
+                     this.runningProcess = this.readyQueue.shift();
+                }
+
+                this.ganttHistory.push({ id: this.runningProcess ? this.runningProcess.id : 'IDLE' });
+
+                if (this.runningProcess) {
+                    this.runningProcess.remainingTime--;
+                    if (this.runningProcess.remainingTime === 0) {
+                        this.runningProcess.completionTime = currentTime + 1;
+                        this.completedProcesses.push(this.runningProcess);
+                        this.runningProcess = null;
+                    }
+                }
+            }
+
+             getState() {
+                const idleTime = this.ganttHistory.filter(i => i.id === 'IDLE').length;
+                return {
+                    runningProcess: this.runningProcess,
+                    readyQueue: this.readyQueue,
+                    ganttHistory: this.ganttHistory,
+                    totalDuration: idleTime + this.totalBurstTime
+                };
+            }
+
+            isFinished() {
+                return this.completedProcesses.length === this.processes.length;
+            }
+        }
+        
+        function calculateSJF(processQueue) {
+            let currentTime = 0;
+            let completed = 0;
+            const ganttChart = [];
+            const completedProcesses = [];
+            processQueue.forEach(p => p.isCompleted = false);
+
+            while (completed < processQueue.length) {
+                const readyQueue = processQueue
+                    .filter(p => p.arrival <= currentTime && !p.isCompleted)
+                    .sort((a, b) => a.burst - b.burst || a.arrival - b.arrival);
+
+                if (readyQueue.length === 0) {
+                    const nextArrival = Math.min(...processQueue.filter(p => !p.isCompleted).map(p => p.arrival));
+                    if (nextArrival > currentTime) {
+                        if (ganttChart.length > 0 && ganttChart[ganttChart.length - 1].id === 'IDLE') {
+                            ganttChart[ganttChart.length - 1].end = nextArrival;
+                        } else {
+                            ganttChart.push({id: 'IDLE', start: currentTime, end: nextArrival });
+                        }
+                    }
+                    currentTime = isFinite(nextArrival) ? nextArrival : currentTime + 1;
+                    continue;
+                }
+
+                const currentProcess = readyQueue[0];
+                
+                const startTime = currentTime;
+                currentProcess.completionTime = startTime + currentProcess.burst;
+                currentProcess.turnaroundTime = currentProcess.completionTime - currentProcess.arrival;
+                currentProcess.waitingTime = currentProcess.turnaroundTime - currentProcess.burst;
+                currentProcess.isCompleted = true;
+
+                currentTime = currentProcess.completionTime;
+                completed++;
+                completedProcesses.push(currentProcess);
+                ganttChart.push({ id: currentProcess.id, start: startTime, end: currentTime });
+            }
+
+            const totalWaitingTime = completedProcesses.reduce((acc, p) => acc + p.waitingTime, 0);
+            const totalTurnaroundTime = completedProcesses.reduce((acc, p) => acc + p.turnaroundTime, 0);
+
+            return {
+                completedProcesses,
+                ganttChart,
+                avgWaitingTime: totalWaitingTime / completedProcesses.length,
+                avgTurnaroundTime: totalTurnaroundTime / completedProcesses.length,
+            };
+        }
+
+        function calculateSRTN(processQueue) {
+            const tempProcesses = JSON.parse(JSON.stringify(processQueue));
+            const simulator = new SRTN_Simulator(tempProcesses);
+            let simTime = 0;
+            while(!simulator.isFinished()) {
+                simulator.tick(simTime);
+                simTime++;
+                 if (simTime > 2000) break; // Safety break
+            }
+            
+            const completedProcesses = simulator.completedProcesses.map(p => {
+                 const originalProcess = processQueue.find(op => op.id === p.id);
+                 const turnaroundTime = p.completionTime - originalProcess.arrival;
+                 const waitingTime = turnaroundTime - originalProcess.burst;
+                 return {...originalProcess, completionTime: p.completionTime, turnaroundTime, waitingTime };
+            });
+
+            const ganttHistory = simulator.getState().ganttHistory;
+            const ganttChart = [];
+            if(ganttHistory.length > 0) {
+                let currentBlock = { id: ganttHistory[0].id, start: 0, end: 1 };
+                ganttChart.push(currentBlock);
+                for(let i = 1; i < ganttHistory.length; i++) {
+                    if(ganttHistory[i].id === currentBlock.id) {
+                        currentBlock.end++;
+                    } else {
+                        currentBlock = { id: ganttHistory[i].id, start: i, end: i + 1 };
+                        ganttChart.push(currentBlock);
+                    }
+                }
+            }
+
+            const totalWaitingTime = completedProcesses.reduce((acc, p) => acc + p.waitingTime, 0);
+            const totalTurnaroundTime = completedProcesses.reduce((acc, p) => acc + p.turnaroundTime, 0);
+
+            return {
+                completedProcesses,
+                ganttChart,
+                avgWaitingTime: totalWaitingTime / completedProcesses.length || 0,
+                avgTurnaroundTime: totalTurnaroundTime / completedProcesses.length || 0,
+            };
+        }
+
+        function switchTab(group, activeTab) {
+            const tabButtons = document.querySelectorAll(`#${group}-tabs .tab-btn`);
+            const tabContents = document.querySelectorAll(`.${group}-tab-content`);
+
+            tabButtons.forEach(button => {
+                if (button.dataset.tab === activeTab) {
+                    button.classList.add('active');
+                } else {
+                    button.classList.remove('active');
+                }
+            });
+
+            tabContents.forEach(content => {
+                if (content.id.startsWith(activeTab)) {
+                    content.classList.remove('hidden');
+                } else {
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+
+        // --- EVENT LISTENERS ---
+        addProcessBtn.addEventListener('click', addProcess);
+        addExampleBtn.addEventListener('click', addExampleData);
+        clearBtn.addEventListener('click', clearAll);
+        runSimulationBtn.addEventListener('click', runSimulation);
+        resetSimBtn.addEventListener('click', resetSimulation);
+        pauseResumeBtn.addEventListener('click', togglePauseSimulation);
+        
+        liveTabs.addEventListener('click', (e) => {
+            if (e.target.matches('.tab-btn')) {
+                switchTab('live', e.target.dataset.tab);
+            }
+        });
+        
+        resultsTabs.addEventListener('click', (e) => {
+            if (e.target.matches('.tab-btn')) {
+                switchTab('results', e.target.dataset.tab);
+            }
+        });
+
+        speedSlider.oninput = () => {
+            if(simulationInterval) startInterval();
+        };
+
+        burstInput.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter') {
+                addProcess();
+            }
+        });
+
+        // Initialize button states
+        resetSimulation();
+
+    </script>
+</body>
+</html>
+
