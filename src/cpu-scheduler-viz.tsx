@@ -47,7 +47,7 @@ const CPUScheduler = () => {
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2 text-center">Nhóm 13 Demo Điều Độ CPU</h1>
+        <h1 className="text-4xl font-bold text-gray-900 mb-2 text-center">Nhóm 13</h1>
         <p className="text-gray-600 text-center mb-8">Công việc ngắn nhất trước (SJF) & Thời gian còn lại ngắn nhất (SRTN)</p>
 
         <AlgorithmSelector algorithm={algorithm} onAlgorithmChange={handleAlgorithmChange} />

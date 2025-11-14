@@ -14,10 +14,17 @@ export const useScheduler = (initialProcesses: Process[]) => {
   const [totalExecutionTime, setTotalExecutionTime] = useState(0);
   
   const intervalRef = useRef<number | null>(null);
-  const lastPreviewTimeRef = useRef<number>(-1);
+  const isRunningRef = useRef(false);
+  const tickRef = useRef<() => Promise<void>>(async () => {});
+  const speedRef = useRef(speed);
+
+  const delay = useCallback(async () => {
+    return new Promise<void>(resolve => setTimeout(() => resolve(), speed));
+  }, [speed]);
 
   const reset = () => {
     setIsRunning(false);
+    isRunningRef.current = false;
     setCurrentTime(0);
     setCurrentProcess(null);
     setReadyQueue([]);
@@ -25,7 +32,6 @@ export const useScheduler = (initialProcesses: Process[]) => {
     setExecutionHistory([]);
     setTotalExecutionTime(0);
     setProcesses(processes.map(p => ({ ...p, remainingTime: p.burstTime })));
-    lastPreviewTimeRef.current = -1;
   };
 
   const handleAlgorithmChange = (newAlgorithm: string) => {
@@ -100,7 +106,7 @@ export const useScheduler = (initialProcesses: Process[]) => {
   }, [processes, algorithm]);
 
   // Simulation tick function that runs the scheduling logic and increments time
-  const tick = useCallback(() => {
+  const tick = useCallback(async () => {
     const time = currentTime;
     
     // Check for newly arrived processes
@@ -115,6 +121,9 @@ export const useScheduler = (initialProcesses: Process[]) => {
       }
     });
 
+    setReadyQueue(updatedReadyQueue);
+    await delay(); // Small delay for UI update
+
     let newCurrentProcess = currentProcess;
     const newExecutionHistory = [...executionHistory];
     const newCompletedProcesses = [...completedProcesses];
@@ -128,6 +137,9 @@ export const useScheduler = (initialProcesses: Process[]) => {
           updatedReadyQueue.sort((a, b) => a.burstTime - b.burstTime || a.arrivalTime - b.arrivalTime);
           const nextProcess = updatedReadyQueue.shift()!;
           newCurrentProcess = { ...nextProcess, startTime: time };
+          setCurrentProcess(newCurrentProcess);
+          setReadyQueue(updatedReadyQueue);
+          await delay(); // Small delay for UI update
         } else {
           // CPU is idle
           newExecutionHistory.push({ time, process: null });
@@ -145,6 +157,12 @@ export const useScheduler = (initialProcesses: Process[]) => {
         // Update remaining time for display
         const updatedProcess = { ...newCurrentProcess, remainingTime: remaining };
         newCurrentProcess = updatedProcess;
+        setCurrentProcess(newCurrentProcess);
+        setExecutionHistory(newExecutionHistory);
+        setCompletedProcesses(newCompletedProcesses);
+        setProcesses(updatedProcesses);
+        setCurrentTime(time + 1);
+        await delay();
         
         // Check if process completes at the END of this time unit
         if (remaining <= 0) {
@@ -168,6 +186,12 @@ export const useScheduler = (initialProcesses: Process[]) => {
             updatedReadyQueue.sort((a, b) => a.burstTime - b.burstTime || a.arrivalTime - b.arrivalTime);
             const nextProcess = updatedReadyQueue.shift()!;
             newCurrentProcess = { ...nextProcess, startTime: time + 1 };
+            setCurrentProcess(newCurrentProcess);
+            setExecutionHistory(newExecutionHistory);
+            setCompletedProcesses(newCompletedProcesses);
+            setProcesses(updatedProcesses);
+            setCurrentTime(time + 1);
+            await delay(); // Small delay for UI update
           } else {
             newCurrentProcess = null;
           }
@@ -193,6 +217,9 @@ export const useScheduler = (initialProcesses: Process[]) => {
           const preemptedProcess = updatedReadyQueue.shift()!;
           nextProcess = { ...preemptedProcess, startTime: time };
           newCurrentProcess = nextProcess;
+          setCurrentProcess(newCurrentProcess);
+          setReadyQueue(updatedReadyQueue);
+          await delay(); // Small delay for UI update
         }
       }
       
@@ -201,6 +228,9 @@ export const useScheduler = (initialProcesses: Process[]) => {
         const newProcess = updatedReadyQueue.shift()!;
         nextProcess = { ...newProcess, startTime: time };
         newCurrentProcess = nextProcess;
+        setCurrentProcess(newCurrentProcess);
+        setReadyQueue(updatedReadyQueue);
+        await delay(); // Small delay for UI update
       }
       
       if (nextProcess) {
@@ -209,6 +239,12 @@ export const useScheduler = (initialProcesses: Process[]) => {
         
         // Decrease remaining time
         const updated = { ...nextProcess, remainingTime: nextProcess.remainingTime - 1 };
+        setCurrentProcess(updated);
+        setExecutionHistory(newExecutionHistory);
+        setCompletedProcesses(newCompletedProcesses);
+        setProcesses(updatedProcesses);
+        setCurrentTime(time + 1);
+        await delay(); // Small delay for UI update
         
         if (updated.remainingTime === 0) {
           const completionTime = time + 1;
@@ -230,6 +266,12 @@ export const useScheduler = (initialProcesses: Process[]) => {
             updatedReadyQueue.sort((a, b) => a.remainingTime - b.remainingTime);
             const nextProcess = updatedReadyQueue.shift()!;
             newCurrentProcess = { ...nextProcess, startTime: time + 1 };
+            setCurrentProcess(newCurrentProcess);
+            setExecutionHistory(newExecutionHistory);
+            setCompletedProcesses(newCompletedProcesses);
+            setProcesses(updatedProcesses);
+            setCurrentTime(time + 1);
+            await delay(); // Small delay for UI update
           } else {
             newCurrentProcess = null;
           }
@@ -239,6 +281,7 @@ export const useScheduler = (initialProcesses: Process[]) => {
             p.id === updated.id ? updated : p
           );
         }
+        
       } else {
         // CPU is idle
         newCurrentProcess = null;
@@ -255,11 +298,35 @@ export const useScheduler = (initialProcesses: Process[]) => {
     setProcesses(updatedProcesses);
     setCurrentTime(time + 1);
 
+    // Check for newly arrived processes
+    const newlyArrivedafter = processes.filter(p => p.arrivalTime === time + 1);
+    const updatedReadyQueueafter = [...updatedReadyQueue];
+    
+    newlyArrivedafter.forEach(p => {
+      if (!completedProcesses.find(cp => cp.id === p.id) && 
+          !updatedReadyQueueafter.find(rp => rp.id === p.id) &&
+          (!currentProcess || currentProcess.id !== p.id)) {
+        updatedReadyQueueafter.push({ ...p });
+      }
+    });
+
+    setReadyQueue(updatedReadyQueueafter);
     // Check if simulation is finished
     if (newCompletedProcesses.length === processes.length) {
       setIsRunning(false);
+      isRunningRef.current = false;
     }
-  }, [currentTime, processes, readyQueue, currentProcess, completedProcesses, executionHistory, algorithm]);
+  }, [currentTime, processes, readyQueue, currentProcess, completedProcesses, executionHistory, algorithm, delay]);
+
+  // Store the latest tick function in ref
+  useEffect(() => {
+    tickRef.current = tick;
+  }, [tick]);
+
+  // Store the latest speed in ref
+  useEffect(() => {
+    speedRef.current = speed;
+  }, [speed]);
 
   // Calculate total execution time when starting from the beginning
   useEffect(() => {
@@ -279,46 +346,48 @@ export const useScheduler = (initialProcesses: Process[]) => {
     }
   }, [currentTime, processes, isRunning, executionHistory.length]);
 
-  // Animation loop using setInterval
+  // Animation loop using recursive setTimeout to handle async tick
   useEffect(() => {
+    // Always sync the ref with the state first
+    isRunningRef.current = isRunning;
+    
     if (isRunning) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-
-      // Preview arriving processes for current time if not done yet
-      if (lastPreviewTimeRef.current !== currentTime) {
-        const arrivingProcesses = processes.filter(p => p.arrivalTime === currentTime);
-        if (arrivingProcesses.length > 0) {
-          setReadyQueue(prev => {
-            const updated = [...prev];
-            arrivingProcesses.forEach(p => {
-              if (!completedProcesses.find(cp => cp.id === p.id) && 
-                  !updated.find(rp => rp.id === p.id) &&
-                  (!currentProcess || currentProcess.id !== p.id)) {
-                updated.push({ ...p });
-              }
-            });
-            return updated;
-          });
-        }
-        lastPreviewTimeRef.current = currentTime;
+      // Clear any existing timeout to prevent multiple loops
+      if (intervalRef.current) {
+        clearTimeout(intervalRef.current);
+        intervalRef.current = null;
       }
 
-      intervalRef.current = setInterval(() => {
-        tick();
-      }, speed) as unknown as number;
+      // Start the async loop
+      const runTick = async () => {
+        if (!isRunningRef.current) return; // Check ref, not state
+        
+        await tickRef.current(); // Use ref to get latest tick function
+        
+        // Schedule next tick only after current one completes
+        if (isRunningRef.current) {
+          intervalRef.current = setTimeout(runTick, speedRef.current) as unknown as number;
+        }
+      };
+      
+      // Start the first tick with a small delay to ensure state is settled
+      intervalRef.current = setTimeout(runTick, 0) as unknown as number;
     } else {
+      // Stop immediately
       if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+        clearTimeout(intervalRef.current);
         intervalRef.current = null;
       }
     }
+    
     return () => {
+      // Cleanup: stop the loop if component unmounts or effect re-runs
       if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+        clearTimeout(intervalRef.current);
         intervalRef.current = null;
       }
     };
-  }, [isRunning, speed, currentTime, algorithm, processes, readyQueue, currentProcess, completedProcesses, executionHistory, tick]);
+  }, [isRunning]); // Removed speed from dependencies - using speedRef instead
 
   return {
     processes,

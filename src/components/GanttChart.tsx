@@ -72,16 +72,22 @@ export const GanttChart = ({
               );
             })}
           </div>
-          <div className="flex justify-between mt-2 text-gray-600 text-sm">
-            <span>0</span>
-            <span>{Math.floor(displayLength / 2)}</span>
-            <span>{displayLength}</span>
+          <div className="relative mt-2 text-gray-600 text-sm">
+            {Array.from({ length: displayLength + 1 }, (_, i) => (
+              <span 
+                key={i}
+                className="absolute transform -translate-x-1/2"
+                style={{ left: `${(i / displayLength) * 100}%` }}
+              >
+                {i}
+              </span>
+            ))}
           </div>
         </div>
         
         {/* Current process info */}
         {(isRunning || currentProcess) && (
-          <div className="mt-4 flex items-center justify-between bg-gray-100 p-3 rounded border border-gray-200">
+          <div className="mt-8 flex items-center justify-between bg-gray-100 p-3 rounded border border-gray-200">
             {currentProcess ? (
               <>
                 <div className="flex items-center gap-3 flex-1">
